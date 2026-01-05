@@ -36,10 +36,13 @@ const fetchWithFailover = async (targetUrl: string, signal: AbortSignal, attempt
 
 // Increased concurrency for enterprise-grade speed
 const CONCURRENCY_LIMIT = 12;
+// Safety limit to prevent browser crashes on massive enterprise sites (100k+ pages)
+// We only need a statistically significant sample for the audit.
+const MAX_URL_SAMPLE_SIZE = 600; 
 
 /**
  * Crawls a sitemap, handling nested sitemap indexes and reporting progress.
- * Optimized for single-pass parallel processing.
+ * Optimized for single-pass parallel processing with Heuristic Prioritization.
  */
 export const crawlSitemap = async (initialSitemapUrl: string, onProgress: (progress: CrawlProgress) => void): Promise<Set<string>> => {
     const parser = new DOMParser();
@@ -59,6 +62,13 @@ export const crawlSitemap = async (initialSitemapUrl: string, onProgress: (progr
         
         await new Promise<void>((resolve, reject) => {
             const processNext = async () => {
+                // Heuristic Check: Stop if we have enough data for a robust audit
+                if (allPageUrls.size >= MAX_URL_SAMPLE_SIZE) {
+                    // Drain queue
+                    if (activeWorkers === 0) resolve();
+                    return;
+                }
+
                 if (processingQueue.length === 0 && activeWorkers === 0) {
                     resolve();
                     return;
@@ -99,10 +109,28 @@ export const crawlSitemap = async (initialSitemapUrl: string, onProgress: (progr
                             .map(node => node.textContent?.trim())
                             .filter(Boolean) as string[];
                         
+                        // Smart Sorting: Prioritize "post", "page", "product" sitemaps.
+                        // Deprioritize "tag", "author", "date" archives.
+                        nestedUrls.sort((a, b) => {
+                            const priorityRegex = /post|page|product|service|landing/i;
+                            const lowPriorityRegex = /tag|author|archive|date|20\d\d/i;
+                            
+                            const aScore = (priorityRegex.test(a!) ? 2 : 0) - (lowPriorityRegex.test(a!) ? 2 : 0);
+                            const bScore = (priorityRegex.test(b!) ? 2 : 0) - (lowPriorityRegex.test(b!) ? 2 : 0);
+                            
+                            return bScore - aScore;
+                        });
+
                         nestedUrls.forEach(url => {
                             if (!processedSitemaps.has(url) && !sitemapsToProcess.has(url)) {
                                 sitemapsToProcess.add(url);
-                                processingQueue.push(url);
+                                // High priority goes to front of queue, low to back
+                                const isHighValue = /post|page|product/i.test(url);
+                                if (isHighValue) {
+                                    processingQueue.unshift(url);
+                                } else {
+                                    processingQueue.push(url);
+                                }
                             }
                         });
                     } else {

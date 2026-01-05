@@ -44,9 +44,9 @@ export const SerpInsightsDisplay: React.FC<SerpInsightsDisplayProps> = ({ insigh
     const { targetKeyword, aiOverview, peopleAlsoAsk, relatedSearches, lsiKeywords, serpFeatureAnalysis } = insights;
     
     // Ensure arrays are properly typed arrays using type guards to avoid 'unknown' errors
-    const safePaa = Array.isArray(peopleAlsoAsk) ? peopleAlsoAsk : [];
-    const safeRelated = Array.isArray(relatedSearches) ? relatedSearches : [];
-    const safeLsi = lsiKeywords || {};
+    const safePaa: string[] = Array.isArray(peopleAlsoAsk) ? peopleAlsoAsk as string[] : [];
+    const safeRelated: string[] = Array.isArray(relatedSearches) ? relatedSearches as string[] : [];
+    const safeLsi: Record<string, string[]> = lsiKeywords || {};
 
     const title = aiProvider === 'gemini'
     ? "Live SERP Deconstruction (via Google Search)"
