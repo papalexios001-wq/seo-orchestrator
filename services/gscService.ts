@@ -1,3 +1,4 @@
+
 export interface GscSite {
     siteUrl: string;
     permissionLevel: string;
@@ -10,7 +11,8 @@ export interface GscPerformanceData {
     position: number;
 }
 
-const GSC_API_BASE = 'https://www.googleapis.com/webmasters/v3';
+// Modern GSC API Endpoint
+const GSC_API_BASE = 'https://searchconsole.googleapis.com/webmasters/v3';
 
 /**
  * Fetches the list of sites (properties) from the user's GSC account.
@@ -61,6 +63,7 @@ export const fetchGscPerformanceForUrl = async (
         rowLimit: 1,
     };
 
+    // Note: The searchAnalytics endpoint is under the specific site resource
     const response = await fetch(`${GSC_API_BASE}/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`, {
         method: 'POST',
         headers: {
